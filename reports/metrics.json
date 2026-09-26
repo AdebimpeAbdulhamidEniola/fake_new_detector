@@ -1,0 +1,96 @@
+{
+  "dataset": {
+    "raw_rows": 44898,
+    "class_counts_raw": {
+      "FAKE": 23481,
+      "REAL": 21417
+    },
+    "mean_words": {
+      "FAKE": 423.2,
+      "REAL": 385.6
+    },
+    "clean_rows": 38820,
+    "class_counts_clean": {
+      "REAL": 20921,
+      "FAKE": 17899
+    }
+  },
+  "split": {
+    "train": 31056,
+    "test": 7764
+  },
+  "vocabulary_size": 95819,
+  "passive_aggressive": {
+    "accuracy": 0.9838,
+    "precision": 0.9817,
+    "recall": 0.9883,
+    "f1": 0.985,
+    "confusion_matrix": {
+      "TP": 4135,
+      "FN": 49,
+      "FP": 77,
+      "TN": 3503
+    },
+    "train_seconds": 0.749,
+    "inference_ms_per_article": 0.00135
+  },
+  "naive_bayes": {
+    "accuracy": 0.9329,
+    "precision": 0.9237,
+    "recall": 0.9543,
+    "f1": 0.9388,
+    "confusion_matrix": {
+      "TP": 3993,
+      "FN": 191,
+      "FP": 330,
+      "TN": 3250
+    },
+    "train_seconds": 0.229
+  },
+  "top_terms": {
+    "fake": [
+      "video",
+      "featured",
+      "image",
+      "read",
+      "breaking",
+      "gop",
+      "getty",
+      "wire",
+      "just",
+      "watch",
+      "sen",
+      "breitbart",
+      "images",
+      "rep",
+      "hillary",
+      "daily",
+      "mr",
+      "reportedly",
+      "flickr",
+      "wfb"
+    ],
+    "real": [
+      "wednesday",
+      "tuesday",
+      "thursday",
+      "friday",
+      "republican",
+      "nov",
+      "monday",
+      "presidential",
+      "barack",
+      "statement",
+      "showed",
+      "rival",
+      "sunday",
+      "spokeswoman",
+      "reporters",
+      "democratic",
+      "comment",
+      "citing",
+      "representatives",
+      "spokesman"
+    ]
+  }
+}

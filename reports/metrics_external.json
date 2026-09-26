@@ -1,0 +1,53 @@
+{
+  "cross_dataset": {
+    "accuracy": 0.5787,
+    "precision": 0.6649,
+    "recall": 0.3184,
+    "f1": 0.4306,
+    "confusion_matrix": {
+      "TP": 1004,
+      "FN": 2149,
+      "FP": 506,
+      "TN": 2643
+    },
+    "rows": 6302
+  },
+  "proposal_replication": {
+    "accuracy": 0.9461,
+    "precision": 0.9383,
+    "recall": 0.9507,
+    "f1": 0.9444,
+    "confusion_matrix": {
+      "TP": 578,
+      "FN": 30,
+      "FP": 38,
+      "TN": 615
+    },
+    "train": 5041,
+    "test": 1261
+  },
+  "combined_on_isot_test": {
+    "accuracy": 0.9704,
+    "precision": 0.963,
+    "recall": 0.9828,
+    "f1": 0.9728,
+    "confusion_matrix": {
+      "TP": 4112,
+      "FN": 72,
+      "FP": 158,
+      "TN": 3422
+    }
+  },
+  "combined_on_external_test": {
+    "accuracy": 0.8818,
+    "precision": 0.8977,
+    "recall": 0.852,
+    "f1": 0.8743,
+    "confusion_matrix": {
+      "TP": 518,
+      "FN": 90,
+      "FP": 59,
+      "TN": 594
+    }
+  }
+}
