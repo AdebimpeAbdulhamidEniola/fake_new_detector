@@ -1,0 +1,99 @@
+/* Shared stylesheet for the Production-Ready Finance API course.
+   Every lesson links this so the course reads as one consistent set.
+   Design goal: calm, print-friendly, Tufte-ish. Readable in light & dark. */
+
+:root {
+  --ink: #1a1a1a;
+  --paper: #fdfdfb;
+  --muted: #5b5b55;
+  --rule: #e2e0d8;
+  --accent: #8a1c1c;      /* deep red: danger / the break */
+  --accent-soft: #f6e9e9;
+  --fix: #1d5b3a;         /* green: the fix */
+  --fix-soft: #e8f3ec;
+  --code-bg: #f4f2ec;
+  --link: #2a5885;
+  --maxw: 42rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --ink: #e8e6df;
+    --paper: #16171a;
+    --muted: #a3a199;
+    --rule: #30323a;
+    --accent: #e98b8b;
+    --accent-soft: #3a2323;
+    --fix: #7fcfa0;
+    --fix-soft: #1e3328;
+    --code-bg: #20222a;
+    --link: #8fb6e0;
+  }
+}
+:root[data-theme="dark"] {
+  --ink: #e8e6df; --paper: #16171a; --muted: #a3a199; --rule: #30323a;
+  --accent: #e98b8b; --accent-soft: #3a2323; --fix: #7fcfa0;
+  --fix-soft: #1e3328; --code-bg: #20222a; --link: #8fb6e0;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font: 1.05rem/1.65 Georgia, "Iowan Old Style", "Palatino Linotype", serif;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 3rem 16px 6rem;
+  -webkit-text-size-adjust: 100%;
+}
+
+header.lesson-head { border-bottom: 2px solid var(--ink); padding-bottom: 1rem; margin-bottom: 2rem; }
+.kicker { font: 600 .72rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .14em; text-transform: uppercase; color: var(--accent); margin: 0 0 .5rem; }
+h1 { font-size: 1.9rem; line-height: 1.2; margin: 0 0 .4rem; }
+h2 { font-size: 1.3rem; margin: 2.4rem 0 .6rem; border-bottom: 1px solid var(--rule); padding-bottom: .3rem; }
+h3 { font-size: 1.05rem; margin: 1.6rem 0 .4rem; }
+.sub { color: var(--muted); font-style: italic; margin: 0; }
+
+a { color: var(--link); }
+.muted { color: var(--muted); }
+
+code, pre { font-family: "SF Mono", "JetBrains Mono", ui-monospace, Menlo, Consolas, monospace; }
+code { background: var(--code-bg); padding: .1em .35em; border-radius: 4px; font-size: .88em; }
+pre { background: var(--code-bg); padding: 1rem 1.1rem; border-radius: 8px; overflow-x: auto; font-size: .82rem; line-height: 1.5; border: 1px solid var(--rule); }
+pre code { background: none; padding: 0; }
+
+.callout { border-left: 4px solid var(--rule); padding: .8rem 1.1rem; margin: 1.4rem 0; border-radius: 0 8px 8px 0; background: var(--code-bg); }
+.break { border-left-color: var(--accent); background: var(--accent-soft); }
+.break h3, .break strong { color: var(--accent); }
+.fix { border-left-color: var(--fix); background: var(--fix-soft); }
+.fix h3, .fix strong { color: var(--fix); }
+
+.badge { display: inline-block; font: 600 .68rem/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: .08em; text-transform: uppercase; padding: .28em .5em; border-radius: 4px; vertical-align: middle; }
+.badge.sev { background: var(--accent); color: #fff; }
+.badge.owasp { background: transparent; border: 1px solid var(--accent); color: var(--accent); }
+
+ol.steps { padding-left: 1.3rem; }
+ol.steps li { margin: .5rem 0; }
+
+.cite { font-size: .78rem; color: var(--muted); }
+.cite a { color: var(--muted); }
+
+/* Quiz widget */
+.quiz { border: 1px solid var(--rule); border-radius: 10px; padding: 1.2rem 1.3rem; margin: 1.5rem 0; background: var(--paper); }
+.quiz p.q { font-weight: 600; margin: 0 0 .8rem; }
+.quiz button { display: block; width: 100%; text-align: left; margin: .4rem 0; padding: .6rem .8rem; border: 1px solid var(--rule); background: var(--code-bg); color: var(--ink); border-radius: 7px; cursor: pointer; font: inherit; font-size: .92rem; transition: border-color .15s; }
+.quiz button:hover { border-color: var(--muted); }
+.quiz button.correct { border-color: var(--fix); background: var(--fix-soft); }
+.quiz button.wrong { border-color: var(--accent); background: var(--accent-soft); }
+.quiz .feedback { margin-top: .7rem; font-size: .9rem; min-height: 1.2em; }
+
+nav.lesson-nav { margin-top: 3.5rem; padding-top: 1.2rem; border-top: 1px solid var(--rule); display: flex; justify-content: space-between; font: .85rem ui-sans-serif, system-ui, sans-serif; gap: 1rem; flex-wrap: wrap; }
+
+.ask { margin-top: 2.5rem; padding: 1rem 1.2rem; border: 1px dashed var(--muted); border-radius: 10px; font-size: .92rem; }
+
+@media print {
+  body { max-width: none; color: #000; background: #fff; padding: 0; font-size: 11pt; }
+  .quiz button, nav.lesson-nav, .ask { display: none; }
+  pre, .callout { break-inside: avoid; }
+}

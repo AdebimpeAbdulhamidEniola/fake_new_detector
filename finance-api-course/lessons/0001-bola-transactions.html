@@ -1,0 +1,165 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lesson 1 — Stealing Another User's Money Data</title>
+<meta name="description" content="Break and then fix Broken Object Level Authorization (OWASP API1) in the Personal Finance API, proven live in Postman.">
+<link rel="stylesheet" href="../assets/course.css">
+</head>
+<body>
+
+<header class="lesson-head">
+  <p class="kicker">Lesson 1 · Security</p>
+  <h1>Deleting a stranger's transactions</h1>
+  <p class="sub">You will log in as Bob and destroy Alice's financial records — using nothing but a valid Bob token. Then you'll make that attack impossible.</p>
+</header>
+
+<p>
+  <span class="badge sev">Severity: High</span>
+  <span class="badge owasp">OWASP API1:2023 — BOLA</span>
+</p>
+
+<p>
+  Every endpoint that takes an <strong>ID from the client</strong> and acts on that
+  object must check that the <em>logged-in user is allowed to touch that object</em>.
+  Your transaction endpoints don't. They trust the ID and nothing else. This single
+  class of bug — <strong>Broken Object Level Authorization</strong> — is the
+  <a href="https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/">#1 risk on the OWASP API Security Top 10</a>,
+  and it's the first thing a sharp interviewer will try against a CRUD API.
+</p>
+
+<div class="callout break">
+  <h3>The claim we're about to prove</h3>
+  <p>Any authenticated user can <strong>read the ID of another user's transaction and then update or delete it</strong>, because the code looks the row up by <code>id</code> alone and never compares it to <code>req.userId</code>.</p>
+</div>
+
+<h2>Where the hole is</h2>
+<p>Open <code>src/models/transaction.model.ts</code>. The delete is literally:</p>
+<pre><code>export const deleteTransaction = async (id: string) =&gt; {
+    return await prisma.transaction.delete({
+        where: { id }            // &larr; only the id. whose transaction? nobody asks.
+    })
+}</code></pre>
+<p>And the controller in <code>src/controllers/transaction.controller.ts</code> checks that you are <em>logged in</em>, then throws the user ID away:</p>
+<pre><code>const userId = req.userId;
+if (!userId) throw new AppError("User not authenticated", 401);
+// userId is never passed down &mdash; ownership is never checked
+const transaction = await deleteTransaction(req.params.id);</code></pre>
+<p>Being logged in is <strong>authentication</strong>. Being allowed to touch <em>this specific row</em> is <strong>authorization</strong>. The guide says it plainly: "a user may be authenticated successfully&hellip; but still not be authorized to access a specific resource" (<code>Backend-Engineers-Guide/notes/08_security/01_auth.md</code>). Your code does the first and skips the second.</p>
+
+<h2>Break it — in Postman</h2>
+<p class="muted">Run your API locally first (<code>npm run dev</code>), with your database connected. Set a Postman variable <code>baseUrl</code> = <code>http://localhost:4100</code> (or whatever your <code>PORT</code> is).</p>
+
+<ol class="steps">
+  <li><strong>Create Alice.</strong> <code>POST {{baseUrl}}/api/auth/signup</code>, body (JSON):
+    <pre><code>{ "email": "alice@test.com", "password": "password123",
+  "confirmPassword": "password123", "name": "Alice" }</code></pre>
+  </li>
+  <li><strong>Create Bob.</strong> Same request, <code>bob@test.com</code> / <code>"name": "Bob"</code>.</li>
+  <li><strong>Mark both verified.</strong> Login refuses unverified emails, and SendGrid won't deliver locally, so flip the flag straight in the database. In a terminal:
+    <pre><code>psql "$DATABASE_URL" -c 'UPDATE "User" SET "isVerified" = true;'</code></pre>
+    <span class="muted">(One-time shortcut for local testing only — never do this in production.)</span>
+  </li>
+  <li><strong>Log in as Alice.</strong> <code>POST {{baseUrl}}/api/auth/login</code> with Alice's email + password. Copy <code>data.token</code> from the response &rarr; call it <code>TOKEN_A</code>.</li>
+  <li><strong>Log in as Bob.</strong> Same, &rarr; <code>TOKEN_B</code>.</li>
+  <li><strong>Alice records a transaction.</strong> <code>POST {{baseUrl}}/api/transactions</code>,
+    Header <code>Authorization: Bearer TOKEN_A</code>, body:
+    <pre><code>{ "amount": 5000, "category": "Salary", "type": "INCOME" }</code></pre>
+    Copy the returned <code>data.id</code> &rarr; <code>TX_ID</code>. This row belongs to Alice.
+  </li>
+  <li><strong>🔴 The attack.</strong> Now be Bob. <code>DELETE {{baseUrl}}/api/transactions/TX_ID</code>,
+    Header <code>Authorization: Bearer TOKEN_B</code>. No body.
+    <div class="callout break" style="margin:.8rem 0 0">You get <code>200 "Transaction deleted successfully"</code>. Bob just deleted Alice's data with his own token. Try the update variant too: <code>PUT {{baseUrl}}/api/transactions/TX_ID</code> with <code>{ "amount": 1 }</code> and Bob's token — Bob can rewrite Alice's money.</div>
+  </li>
+  <li><strong>Confirm the damage.</strong> As Alice (<code>GET {{baseUrl}}/api/transactions</code>, <code>TOKEN_A</code>) — her transaction is gone. She never consented, never saw it.</li>
+</ol>
+
+<p>That is the whole vulnerability. No special tools, no SQL injection — just an ID Bob wasn't supposed to be able to use. In the real OWASP scenarios this is how attackers pull "the sales data of thousands of e-commerce stores" or unlock cars that aren't theirs.</p>
+
+<h2>Fix it — scope every object to its owner</h2>
+<p>The rule (<a href="https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/">OWASP "How To Prevent"</a>): <em>in every function that uses a client-supplied input to reach a record, check that the logged-in user is allowed to perform the action on that record.</em> We push the user's ID into the query so the database can only ever touch rows that belong to them.</p>
+
+<h3>1. Make the model owner-aware</h3>
+<p><code>src/models/transaction.model.ts</code> — require <code>userId</code> and filter on it. <code>updateMany</code>/<code>deleteMany</code> let us match on <em>both</em> <code>id</code> and <code>userId</code> and tell us how many rows matched:</p>
+<pre><code>export const updateTransaction = async (
+  id: string, userId: string, data: Partial&lt;TransactionInput&gt;
+) =&gt; {
+  const result = await prisma.transaction.updateMany({
+    where: { id, userId },   // &larr; must match the owner too
+    data,
+  });
+  return result.count; // 0 = not yours (or not found)
+};
+
+export const deleteTransaction = async (id: string, userId: string) =&gt; {
+  const result = await prisma.transaction.deleteMany({
+    where: { id, userId },
+  });
+  return result.count;
+};</code></pre>
+
+<h3>2. Make the controller enforce it</h3>
+<p><code>src/controllers/transaction.controller.ts</code> — pass the ID down, and turn "0 rows touched" into a clean error instead of a silent success:</p>
+<pre><code>const count = await deleteTransaction(req.params.id, userId);
+if (count === 0) {
+  throw new AppError("Transaction not found", 404);
+}
+handleResponse(res, 200, "Transaction deleted successfully");</code></pre>
+<p>Do the same in <code>updateTransacctionController</code>. We return <strong>404, not 403</strong>, on purpose: telling Bob "403 Forbidden" would confirm the row <em>exists</em>. 404 leaks nothing about other users' data.</p>
+
+<div class="callout fix">
+  <h3>Re-test in Postman — same requests, new outcome</h3>
+  <p>Repeat step 7 (Bob's DELETE on Alice's <code>TX_ID</code>): now <code>404 "Transaction not found"</code>. Bob is blocked. Then delete it as <strong>Alice</strong> (<code>TOKEN_A</code>): <code>200</code>. Owners can act; strangers can't. The hole is closed.</p>
+</div>
+
+<h2>Lock it so it can't come back</h2>
+<p>A fix with no test rots. The OWASP checklist's last line is "Write tests to evaluate the vulnerability&hellip; Do not deploy changes that make the tests fail." Your regression test, in words, is:</p>
+<pre><code>// Bob must NOT be able to delete Alice's transaction
+// 1. create alice + bob, create a tx as alice
+// 2. DELETE /api/transactions/:aliceTxId  with bob's token
+// expect(status).toBe(404)
+// expect(aliceTxStillExists).toBe(true)</code></pre>
+<p>We'll turn this into a real, runnable test in the testing lesson — and that same test is what a CI pipeline will run on every push. For now, the words are enough: you know exactly what "fixed" means.</p>
+
+<div class="quiz" id="q1">
+  <p class="q">An endpoint reads a <code>transactionId</code> from the URL, confirms the request carries a valid login token, then returns that transaction. What is still missing?</p>
+  <button data-correct="false">It must re-hash the user's password first</button>
+  <button data-correct="true">It must confirm the token's user owns that transaction</button>
+  <button data-correct="false">It must encrypt the transaction id inside the token</button>
+  <button data-correct="false">It must refresh the token before reading the record</button>
+  <p class="feedback"></p>
+</div>
+
+<h2>Primary source</h2>
+<p>Read this once, slowly — it's the canonical description of the exact bug you just exploited:<br>
+<a href="https://owasp.org/API-Security/editions/2023/en/0xa1-broken-object-level-authorization/"><strong>OWASP API1:2023 — Broken Object Level Authorization</strong></a>. Pair it with <code>Backend-Engineers-Guide/notes/08_security/01_auth.md</code> for the authentication-vs-authorization mental model.</p>
+
+<div class="ask">
+  <strong>I'm your teacher — ask me anything.</strong> Stuck getting the API running, unsure why we used <code>deleteMany</code> instead of a <code>findFirst</code>-then-<code>delete</code>, want to see the same bug in the <em>reports</em> or <em>profile</em> endpoints, or want the interview-ready one-sentence version of this? Just ask in the chat.
+</div>
+
+<nav class="lesson-nav">
+  <span>Lesson 1 of the Production-Ready course</span>
+  <span>Next → Lesson 2: forging a login token (JWT secret fallback)</span>
+</nav>
+
+<script>
+  // Shared quiz behaviour (will be promoted to assets/ when a 2nd lesson needs it).
+  document.querySelectorAll('.quiz').forEach(function (quiz) {
+    var fb = quiz.querySelector('.feedback');
+    quiz.querySelectorAll('button').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        var right = btn.getAttribute('data-correct') === 'true';
+        btn.classList.add(right ? 'correct' : 'wrong');
+        fb.textContent = right
+          ? 'Correct. Authentication (who you are) is not authorization (what this object lets you do). The owner check is the missing half.'
+          : 'Not quite — the token already proves identity. What is unproven is whether that identity is allowed to touch THIS object. Try again.';
+        fb.style.color = right ? 'var(--fix)' : 'var(--accent)';
+      });
+    });
+  });
+</script>
+
+</body>
+</html>
